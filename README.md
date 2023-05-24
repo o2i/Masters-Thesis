@@ -1,5 +1,5 @@
 # Masters-Thesis
-Optimal locations for BETs with grid impacts.
+Optimal locations for Battery Electric Trucks (BETs) with grid impacts.
 
 ## Instruction for using the musk-model
 To use the musk-model, download shapefiles from: 
