@@ -7,6 +7,8 @@ from scipy.spatial import distance
 import math
 import geopandas as gpd
 import pyproj
+import cartopy.crs as ccrs
+import cartopy.io.shapereader as shpreader
 
 desired_width = 320
 pd.set_option('display.width', desired_width)
@@ -22,73 +24,40 @@ var_long = "Long"
 var_lat = "Lat"
 var_x = "x"
 var_y = "y"
-#num_of_CS = 1
 
 # Output of location shapefile
 output = location
 
 # Import GIS data and car park location data
-GIS_data = pd.read_csv(traffic_data, sep=";", decimal=",").fillna(0)
-car_park_data = pd.read_csv(park_data, sep=";", decimal=",").fillna(0)
-#existing_chg_data = pd.read_csv('cs.csv', sep=";", decimal=",")
+GIS_data = pd.read_csv(traffic_data, sep=";", decimal=",").fillna(0)        # Contains Area of cell, traffic flow, position of centroids (x,y) in decimal degrees, and count of charging stations in grid (Count)
+car_park_data = pd.read_csv(park_data, sep=";", decimal=",").fillna(0)      # Contains longitude and latitude position of parking lots (x, y).
 
 GIS_df = pd.DataFrame(GIS_data)
 car_park_df = pd.DataFrame(car_park_data)
-#print(GIS_df["telling"])
-#ex_chg_df = pd.DataFrame(existing_chg_data)
-#ex_chg_df = ex_chg_df["lat_touch"]
+
 # Cleaning datasets
 GIS_df = GIS_df[["Shape_Area", "telling", "x", "y", "Count"]]
-#GIS_df.telling +=100
 car_park_df = car_park_df[[var_long, var_lat]]
-#print(GIS_df["Shape_Area"])
-print(GIS_df.telling.max())
-# Create demand centroids for each cell i
-#GIS_df['centroid_x'] = GIS_df['x']
-#GIS_df['centroid_y'] = GIS_df['y']
-
-# Group by id, if id > 1 then there are more than 1 charger in each cell i
-#existing_chg_df2 = existing_chg_df.groupby(by=['OID_']).count().reset_index()
-
-# Drop unneeded columns
-#drop_columns = ['left', 'top', 'right', 'bottom', 'id', 'latitude', 'longitude']
-#existing_chg_df2 = existing_chg_df2.drop(labels=drop_columns, axis=1)
-
-# Merge the demand grids ids 'fid' between the two dataframes
-#GIS_df2 = pd.merge(GIS_df, existing_chg_df2, how='left', on='OID_')
-#GIS_df['no_existing_chg'] = GIS_df2['lat_touch']                   # Number of chargers in grid
-#GIS_df.sort_values('OID_', ascending=True)
-
-#print(GIS_df)
-#print(car_park_df)
 
 def gen_sets(df_demand, df_parking):
     """Generate sets to use in the optimization problem"""
     # set of charging demand locations (destinations)
     demand_lc = df_demand.index.tolist()
-    
     # set of candidates for charging station locations (currently existing parking lots)
     chg_lc = df_parking.index.tolist()
-    #demand_lc.extend([0] * (len(chg_lc)-len(demand_lc)))
-    #demand_lc.extend([0] * (len(chg_lc)-len(demand_lc)))
-    #print("Length of demand ", len(demand_lc))
-    #print("Length of parking ", len(chg_lc))
-    #print(demand_lc)
-    #print(chg_lc)
-    return demand_lc, chg_lc        # Returns a list of index numbers for df_demand and df_parking [0,...,371] and [0,...,518]
-gen_sets(GIS_df,car_park_df)
+    
+    return demand_lc, chg_lc        # Returns a list of index numbers for df_demand and df_parking [0,...,x] and [0,...,y]
 
 def gen_parameters(df_demand, df_parking):
     """Generate parameters to use in the optimization problem,
     including cost to install charging stations, operating costs and others..."""
 
-    #v0 = 0.013/100   # the charging possibility of an EV in cell i
     v0 = 0.178 #(21657+599169+455)/3497790 El-lorries,cars and vans divided by car fleet 0.016#
-    u = 0.078   # the EV penetration rate (utilisation rate) - 10 % of each day are used for charging
+    u = 0.078   # the EV penetration rate (utilisation rate) 
     pe = 1.1   #0.3924   # price of electricity per kWh (kr/kWh)
-    #lj = LpVariable("cp_in_station", lowBound=2, upBound=20)     # maximum number of chargers in a station
-    lj = 4
-    alpha = 468  # Average battery capacity (kWh) | 468 kWh for BET | 70 kWh for EV
+
+    lj = 4  # Upper bound for chargers in station j
+    alpha = 468  # Referance battery capacity (kWh) | 468 kWh for BET | 70 kWh for EV
     #N = num_of_CS      # Total number of stations to be installed
 
     Ai = df_demand["Shape_Area"]  # Ai stands for sum of area of the mixed use parts in cell i
@@ -97,9 +66,9 @@ def gen_parameters(df_demand, df_parking):
     fi = df_demand["telling"]          # Where fi is the average traffic flow in grid i
     di = u * vi * fi                           # Where di represents the charging demand of EV in grid i
     di = di.to_dict()
-    ev_time = 1.8                  # Charging time ev in minutes
-    bet_time = 112		    # Charging time BET (Batter Electric Truck) in minutes
-    # Fast Chargers
+    ev_time = 1.8                  # Charging time ev in hours
+
+    # Rapid Chargers
     df_demand['m'] = 7                       # Number of charging sessions per day (session/day)
     m = df_demand['m'].to_dict()
     df_demand['p'] = (7.69*alpha)/ev_time                   # Cost of charging per minute (£/minute) (approx £6-7/30min)
@@ -139,8 +108,6 @@ def gen_parameters(df_demand, df_parking):
     ce_j = 0
     return di, m, p, t, ci_j, cr_j, ce_j, pe, alpha, lj, distance_matrix3
     
-#gen_parameters(GIS_df,car_park_df)
-
 def gen_demand(df_demand):
     """generate the current demand for charging for each cell i"""
     #df_demand['zero_cs'] = 0                 # ce_j represents the price of a charger in station j
@@ -150,8 +117,6 @@ def gen_demand(df_demand):
     diz = diz.to_dict()
     return diz
 
-import cartopy.crs as ccrs
-import cartopy.io.shapereader as shpreader
 def plot_map():
     fname = 'Norway/no/gadm41_NOR_0.shp'
     adm1_shapes = list(shpreader.Reader(fname).geometries())
@@ -161,9 +126,8 @@ def plot_map():
                   edgecolor='#c9c9c9', facecolor='#c9c9c9', alpha=0.5)
     ax.set_extent([4, 35, 47, 80], ccrs.PlateCarree())
 
-#gen_demand(GIS_df)
 def plot_CS(opt_loc_df, opt_loc_df2, N):
-# Import the road shapefiles
+    """ Import the road shapefiles and plot map """
     shp_path_roads_1 = gpd.read_file(road_shp)
     shp_path_roads_1 = shp_path_roads_1.to_crs(epsg=4326)
 
@@ -189,7 +153,7 @@ def plot_CS(opt_loc_df, opt_loc_df2, N):
     gdf.to_file(output_file, driver='ESRI Shapefile')
 
 def optimize(df_demand, df_parking):
-
+    """ Brings all the variables together and optimizes the problem """
     # Import i and j set function
     demand_lc, chg_lc = gen_sets(df_demand, df_parking)
 
@@ -228,13 +192,12 @@ def optimize(df_demand, df_parking):
             else:
                 r[i][j] = 0
     count = np.count_nonzero(r == 1)
-    print("The number of potential connections with a distance less than 5km is:", count)
+    print("The number of potential connections with a distance less than 500m is:", count)
     probloop = chg_lc
     incentive = 100*10**6
-    #aid = float(aid_val)
      
     # Objective function
-    prob += lpSum(p[j]*t[j] * q[j] - c[j] for j in probloop)	#+aid*N
+    prob += lpSum(p[j]*t[j] * q[j] - c[j] for j in probloop)
     
     # Create empty dictionary for the remaining demand in cell i
     zip_iterator = zip(demand_lc, [None]*len(demand_lc))
@@ -250,7 +213,7 @@ def optimize(df_demand, df_parking):
     
     # Constraints
     for j in probloop:
-        prob += c[j] == (cr_j[j] + ci_j[j] - ins_nj[j]) * n[j] + q[j]*(pe * alpha)
+        prob += c[j] == (cr_j[j] + ci_j[j] - ins_nj[j]) * n[j] + q[j]*(pe * alpha)  # Calculation of cost
     for j in probloop:
         prob += q[j] <= n[j] * m[j]                                 # Constraint 1
     for j in probloop:
@@ -262,15 +225,14 @@ def optimize(df_demand, df_parking):
     for j in probloop:
         prob += n[j] <= lj * x[j]                                   # Constraint 5
 
-    prob += lpSum(x[j] for j in probloop) == N
-                                # Constraint 6
+    prob += lpSum(x[j] for j in probloop) == N                      # Constraint 6
+                                                            
+    prob += lpSum(ins_nj[j] * n[j] for j in probloop) <= incentive/365      # Constraint 7
     
-    #prob += aid == float(insentive)/float(value(cs_num))
-
-    prob += lpSum(ins_nj[j] * n[j] for j in probloop) <= incentive/365
-
+    # Run the optimization
     prob.solve()
-
+    
+    # Print status
     print("Status: ", LpStatus[prob.status])
     tolerance = .00001
     opt_location = []
@@ -280,7 +242,8 @@ def optimize(df_demand, df_parking):
             #print("Establish charging station at parking lot", j)
     df_status = pd.DataFrame({"status": [LpStatus[prob.status]], "Tot_no_chargers": [len(opt_location)]})
     print("Final Optimisation Status:\n", df_status)
-
+    
+    # Add chargers to dict
     varDic = {}
     for variable in prob.variables():
         var = variable.name
@@ -302,60 +265,11 @@ def optimize(df_demand, df_parking):
     opt_loc_df2 = pd.merge(opt_loc_df, var_df, left_on='opt_car_park_id',  right_index=True, how='left')
 #     opt_loc_df2.to_csv(path_or_buf='optimal_locations.csv')
 
-    #open text file
-    #text_file = open("NorthNorway/log.txt", "a")
-    #log_msg = "\n" + "Run " + str(k) + ": " "aid = " + str(aid) + "," + str(df_status) + " ObjValue = " + str(prob.objective.value()) + "\n"   #write string to file
-    #n = text_file.write(log_msg)
-    #print(log_msg)
-    #close file
-    #text_file.close()
-    #for v in prob.variables():
-    	#print(v.name, "=", v.varValue)
-    #lsP = []
-    #lsP.append(p[j].value() * t[j].value() * q[j].value() for j in probloop)
-    #print(lsP)
-    #plot_CS(opt_loc_df, opt_loc_df2, N)
-    q_opt = []
-    q_ls = []
-    costs_ls = []
-    for variable in prob.variables():
-        var = variable.name
-        if var[:9] == 'Tot_costs':      # Filter to obtain only the variable 'no_of_chgrs_station_j'
-            costs_ls.append(variable.varValue)
-        if var[:9] == 'Remaining':
-            q_ls.append(variable.varValue)
-            for i in opt_location:
-                 if var[:(len("Remaining_dem_station_j_")+i)] == 'Remaining_dem_station_j_'+str(i):
-                     q_opt.append(variable.varValue)
-    print(q_opt)
-    profit_ls = []
-    cost_op = []    
-    for item in probloop:
-    	profit_ls.append(p[item] * t[item] * q_ls[item])
-    	cost_op.append(q_ls[item]*alpha*pe)
-    print("Operational cost: ", sum(cost_op))
-    #print(sum(map(sum, r)))
-    #print(sum(di.values()))
-    print("Costs: ", sum(costs_ls))
-    print("Profits: ", sum(profit_ls))
-    #print(prob.objective.value()-incentive)
-    #print(n)
-    #print(GIS_df.telling)
     print("n_j: ",number_of_chargers)
-    nj = []
-    for id in opt_location:
-    	nj.append(varDic["no_of_chgrs_station_j_"+str(id)])
-    #print(q_ls)
 
-    print(nj)
-    demand = pd.DataFrame(
-    {'ID': opt_location,
-     'Demand q': q_opt,
-     'n_j': nj
-    })
-    print(demand)
 
     return opt_location, df_status
-#df_demand, df_parking, v0val, uval, peval, ljval, alphaval, mval, pval, tval, cijval, crjval, cejval
+
+# Run the optimization function using the data set in GIS_df and car_park_df
 optimize(GIS_df,car_park_df)
 
