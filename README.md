@@ -27,4 +27,4 @@ After the chargers is succesfully installed to the network, the network can be s
 
 The network that is compared can be created by running the last line, but without using jupyter-notebook to install the chargers.
 
-### The networks from the thesis can be analysed in the folder Electricity Studies
+### The networks from the thesis can be analysed in the folder *pypsa-eur/Electricity Studies*
