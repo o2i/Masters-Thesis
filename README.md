@@ -25,7 +25,7 @@ To create the network containing the chargers run:
 
 #### To install the chargers to the network use the jupyter-notebook file "Install chargers.ipynb"
 It should be placed inside the main folder in the pypsa-eur model, with the csv file *tot_chargers.csv*, found in *pypsa-eur/*.
-The csv file contains x, y position in decimal degrees and charger capacity. 
+The csv file contains x, y position in decimal degrees and charger capacity. It is important to be patient, because this can take some time (approximately 10-15 minutes). Considering that 26 559 chargers are installed to the network file.
 
 After the chargers is succesfully installed to the network, the network can be solved, run:
 
