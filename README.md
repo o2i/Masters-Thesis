@@ -1,5 +1,8 @@
-# Masters-Thesis
-Optimal locations for Battery Electric Trucks (BETs) with grid impacts.
+# Optimal sizing and placement of Electrical Vehicle charging stations to serve Battery Electric Trucks 
+
+### Master Thesis 2023
+### Candidate: Ole-Andre Fagerli Isaksen
+### Supervisors: Chiara Bordin and Sambeet Mishra
 
 ## Instruction for using the musk-model
 To use the musk-model, download shapefiles from: 
