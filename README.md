@@ -23,7 +23,10 @@ To create the network containing the chargers run:
 
 *snakemake -call resources/networks/elec.nc*
 
-To install the chargers use the jupyter-notebook file "Install chargers.ipynb"
+#### To install the chargers to the network use the jupyter-notebook file "Install chargers.ipynb"
+It should be placed inside the main folder in the pypsa-eur model, with the csv file *tot_chargers.csv*, found in *pypsa-eur/*.
+The csv file contains x, y position in decimal degrees and charger capacity. 
+
 After the chargers is succesfully installed to the network, the network can be solved, run:
 
 *snakemake -call results/networks/elec_s_60_ec_lcopt_24H.nc*
