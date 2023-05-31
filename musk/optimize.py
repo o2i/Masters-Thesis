@@ -71,15 +71,15 @@ def gen_parameters(df_demand, df_parking):
     # Rapid Chargers
     df_demand['m'] = 7                       # Number of charging sessions per day (session/day)
     m = df_demand['m'].to_dict()
-    df_demand['p'] = (7.69*alpha)/ev_time                   # Cost of charging per minute (£/minute) (approx £6-7/30min)
+    df_demand['p'] = (7.69*alpha)/ev_time                   # Cost of charging price per hour NOK/minute (cancels out in the objective function)
     p = df_demand['p'].to_dict()
     df_demand['t'] = ev_time                    # Charging time for an EV (minutes)
     t = df_demand['t'].to_dict()
-    df_demand['ci_j'] = 1437500/365                 #Total Ivestment cost
+    df_demand['ci_j'] = 1437500/365                 #Total Ivestment cost NOK
     ci_j = df_demand['ci_j'].to_dict()
-    df_demand['cr_j'] = 400                 # cr_j represents the parking fee per day of parking lot j
+    df_demand['cr_j'] = 400                 # cr_j represents the parking fee per day of parking lot j NOK
     cr_j = df_demand['cr_j'].to_dict()
-    #df_demand['ce_j'] = 1437500/2/365                # ce_j represents the price of a charger in station j
+    #df_demand['ce_j'] = 1437500/2/365                # ce_j represents the price of a charger in station j NOK
     #ce_j = df_demand['ce_j'].to_dict()
     #
     # distance matrix of charging station location candidates and charging demand location
@@ -266,8 +266,8 @@ def optimize(df_demand, df_parking):
 #     opt_loc_df2.to_csv(path_or_buf='optimal_locations.csv')
 
     print("n_j: ",number_of_chargers)
-
-
+    plot_CS(opt_loc_df, opt_loc_df2, N)
+    
     return opt_location, df_status
 
 # Run the optimization function using the data set in GIS_df and car_park_df
