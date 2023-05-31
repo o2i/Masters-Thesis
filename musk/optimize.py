@@ -144,13 +144,13 @@ def plot_CS(opt_loc_df, opt_loc_df2, N):
     plt.legend(["Road network", "New charging stations"])
     plt.show()
 
-
-    gdf = gpd.GeoDataFrame(opt_loc_df, geometry=gpd.points_from_xy(x=opt_loc_df.Long,y=opt_loc_df.Lat))
-    gdf.crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-    print(gdf)
-    opt_loc_df.to_csv("location.csv")
-    output_file = "shape/" + "opt_loc_" + output + "_CS_" + str(N) + ".shp"
-    gdf.to_file(output_file, driver='ESRI Shapefile')
+    # Save optimal locatations as point feature in shapefile
+    #gdf = gpd.GeoDataFrame(opt_loc_df, geometry=gpd.points_from_xy(x=opt_loc_df.Long,y=opt_loc_df.Lat))
+    #gdf.crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+    #print(gdf)
+    #opt_loc_df.to_csv("location.csv")
+    #output_file = "shape/" + "opt_loc_" + output + "_CS_" + str(N) + ".shp"
+    #gdf.to_file(output_file, driver='ESRI Shapefile')
 
 def optimize(df_demand, df_parking):
     """ Brings all the variables together and optimizes the problem """
